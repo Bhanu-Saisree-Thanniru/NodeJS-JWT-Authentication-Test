@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.7/axios.min.js" integrity="sha512-NQfB/bDaB8kaSXF8E77JjhHG5PM6XVRxvHzkZiwl3ddWCEPBa23T76MuWSwAJdMGJnmQqM0VeY9kFszsrBEFrQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+</head>
+<body>
+    
+    <div class="container-fluid" style="text-align: -webkit-center;">
+        <h1 class="row">Login</h1>
+        <main>
+            <div class="row">
+                <label for="username">Username</label>
+                <input type="text" name="username" id="username">
+            </div>
+
+            <div class="row">
+                <label for="password">Password</label>
+                <input type="password" name="password" id="password">
+            </div>
+        
+            <div>
+                <button onclick="login()">Login</button>
+                <button onclick="getDashboard()">Get Dashboard</button>
+                <button onclick="getSettings()">Settings</button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        var token = '';
+        function login(){
+            const data = {
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value,
+            };
+            axios.post('/api/login', data)
+                .then(res => {
+                    document.getElementById('username').value = '';
+                    document.getElementById('password').value = '';
+                    if(res && res.data && res.data.success){
+                        const token = res.data.token;
+                        localStorage.setItem('jwt', token);
+                        getDashboard();
+                    }
+                })
+            
+        }
+
+        function getDashboard(){
+            //console.log("Inside dashboard");
+            if(tokenValid()){
+                localStorage.removeItem('jwt');
+                window.location.href= '/';
+                return;
+            }
+            else{
+                const token = localStorage.getItem('jwt');
+                axios.get('/api/dashboard', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }).then(res => {
+                    if(res && res.data && res.data.success){
+                        document.querySelector('h1.row').innerHTML = 'Dashboard';
+                        document.querySelector('main').innerHTML = res.data.myContent;
+                        const data = document.querySelector("body").innerHTML;
+                        history.pushState(data, null, "http://localhost:3000/api/dashboard");
+                    }
+                }).catch(err =>{
+                    if( err  && err.data && err.data.err){
+                        const errorResp = err.data.err;
+                        if(errorResp.inner != undefined && errorResp.inner.name === 'TokenExpiredError'){
+                            console.log('Redirect to homepage');
+                        }
+                    }
+                });
+            }
+            
+        }
+
+        function getSettings(){
+            if(tokenValid()){
+                localStorage.removeItem('jwt');
+                window.location.href= '/';
+                return;
+            }
+            else{
+                const token = localStorage.getItem('jwt');
+                axios.get('/api/settings', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }).then(res => {
+                    if(res && res.data && res.data.success){
+                        document.querySelector('h1.row').innerHTML = 'Settings';
+                        document.querySelector('main').innerHTML = res.data.myContent;
+                        const setData = document.querySelector("body").innerHTML;
+                        history.pushState(setData, null, "http://localhost:3000/api/settings");
+                    }
+                }).catch(err =>{
+                        if( err  && err.data && err.data.err){
+                            const errorResp = err.data.err;
+                            if(errorResp.inner != undefined && errorResp.inner.name === 'TokenExpiredError'){
+                                console.log('Redirect to homepage');
+                            }
+                        }
+                    });
+            }
+        }
+
+        function tokenValid(){
+            const token = localStorage.getItem('jwt');
+            if(token != null){
+                const expiry = (JSON.parse(atob(token.split('.')[1]))).exp;
+                console.log("expiry is : " + expiry + "expiry*1000 < Date.now() : " + expiry*1000 < Date.now());
+                if(expiry*1000 < Date.now()){
+                    return true;
+                }
+            }
+            return false;
+        }
+        window.addEventListener('popstate', function(e){
+            var state = e.state;
+            if(state == null){
+                window.location.href = '/';
+            }
+            else{
+                //console.log("state is : "  + state);
+                document.querySelector("body").innerHTML = state;
+            }
+        })
+    </script>
+</body>
+</html>
